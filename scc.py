@@ -8,9 +8,20 @@ from datetime import datetime
 import razorpay
 import time
 import threading
+<<<<<<< HEAD
 
 # ✅ Move this to the top, before any other `st.` functions
+=======
+>>>>>>> 85f65c9319c3d9d8a829a61933050cd673042aad
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
+# --- SPLASH SCREEN --- #
+if "splash_shown" not in st.session_state:
+    splash = st.empty()
+    with splash.container():
+        st.image("splash.png", use_container_width=True)
+        time.sleep(3)
+    splash.empty()
+    st.session_state["splash_shown"] = True
 
 # Now continue with your login and main app logic...
 
