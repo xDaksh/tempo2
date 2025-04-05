@@ -2,16 +2,17 @@ import streamlit as st
 import time
 
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
-if "splash_shown" not in st.session_state:
-    st.session_state.splash_shown = False
+import time
 
-if not st.session_state.splash_shown:
-    st.image("splash.png", use_container_width=True)
-    ##st.markdown("<h3 style='text-align: center;'>🚀 Loading your AI Finance Assistant...</h3>", unsafe_allow_html=True)
-    time.sleep(4)  # ⏱ Show splash screen for 6 seconds
-    st.session_state.splash_shown = True
-    st.rerun()  # 🔁 Refresh the app to remove the splash screen
-    st.stop()  # ⛔ Stop rest of the app from loading until rerun
+# --- SPLASH SCREEN --- #
+# --- SPLASH SCREEN --- #
+if "splash_shown" not in st.session_state:
+    splash = st.empty()
+    with splash.container():
+        st.image("splash.png", use_container_width=True)
+        time.sleep(3)
+    splash.empty()
+    st.session_state["splash_shown"] = True
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,8 +29,6 @@ from razorpay_realtime import fetch_latest_payments
 
 # --- REAL-TIME RAZORPAY PAYMENT TRACKING FUNCTION --- #
 def start_realtime_tracking():
-    # This is a placeholder function.
-    # You can replace it with your actual logic to track real-time Razorpay payments.
     while True:
         print("Tracking real-time payments...")  # Replace with actual tracking logic
         time.sleep(10)  # Simulate a delay for periodic update
@@ -122,21 +121,38 @@ elif latest_time > st.session_state.last_seen_txn_time:
 
 # --- OPTIONAL TAGGING UI --- #
 st.subheader("🏷 Tag Unknown Categories")
+
+# Define category-to-need/want mapping
+need_want_map = {
+    "Shopping": "Want",
+    "Transport": "Need",
+    "Grocery": "Need",
+    "Health": "Need",
+    "Entertainment": "Want",
+    "Education": "Need",
+    "food": "Want",
+    "Gaming": "Want"
+}
+
 untagged = df[df["category"] == ""].copy()
+
 if not untagged.empty:
     for i, row in untagged.iterrows():
         col1, col2, col3 = st.columns([2, 2, 4])
         with col1:
             st.write(f"🧾 {row['app']} - ₹{row['amount']}")
         with col2:
-            category = st.selectbox(f"Category for {row['app']}", options=[
-                "Shopping", "Transport", "Grocery", "Bills", "Entertainment", "Other"
-            ], key=f"tag_{i}")
+            category = st.selectbox(
+                f"Category for {row['app']}",
+                options=list(need_want_map.keys()),
+                key=f"tag_{i}"
+            )
         with col3:
             if st.button("Save", key=f"save_{i}"):
                 df.at[i, "category"] = category
+                df.at[i, "need_or_want"] = need_want_map[category]  # Add the new column
                 df.to_csv("mock_transactions_detailed.csv", index=False)
-                st.success("✅ Category tagged!")
+                st.success(f"✅ Category tagged as {category} ({need_want_map[category]})!")
 
 # --- TITLE --- #
 st.title("💰 AI Finance Assistant Dashboard")
