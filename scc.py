@@ -324,27 +324,6 @@ elif selected_page == "📆 Weekly Spending":
     st.line_chart(weekly)
 
 # -------------------------------
-# Daily Heatmap
-# -------------------------------
-elif selected_page == "🕒 Daily Spending Heatmap":
-    st.subheader("🕒 Daily Spending Heatmap")
-
-if filtered_df.empty:
-    st.warning("⚠️ No data available for the selected filters.")
-else:
-    heatmap_data = filtered_df.copy()
-    heatmap_data['date'] = heatmap_data['datetime'].dt.floor('D')
-    heatmap = heatmap_data.groupby('date')['amount'].sum().reset_index()
-
-    fig, ax = plt.subplots(figsize=(12, 4))
-    sns.lineplot(x='date', y='amount', data=heatmap, ax=ax)
-    ax.set_title("📈 Daily Spending Over Time")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Amount (₹)")
-    st.pyplot(fig)
-
-
-# -------------------------------
 # Category Spending
 # -------------------------------
 if selected_page == "📂 Spending by Category":
@@ -357,8 +336,14 @@ if selected_page == "📂 Spending by Category":
 # -------------------------------
 elif selected_page == "⏰ Spending by Time of Day":
     st.subheader("⏰ Spending by Time of Day")
-    filtered_df['hour'] = filtered_df['datetime'].dt.hour
-    hourly = filtered_df.groupby('hour')['amount'].sum()
+
+if filtered_df.empty:
+    st.warning("⚠️ No data available for the selected filters.")
+else:
+    temp_df = filtered_df.copy()
+    temp_df['hour'] = temp_df['datetime'].dt.hour
+    all_hours = pd.Series(range(24), name="hour")
+    hourly = temp_df.groupby('hour')['amount'].sum().reindex(all_hours, fill_value=0)
     st.line_chart(hourly)
 
 # -------------------------------
