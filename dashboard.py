@@ -97,8 +97,7 @@ def load_data():
     except FileNotFoundError:
         return df_local
 
-st.sidebar.subheader("📁 Upload Your Transactions (CSV)")
-uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
+
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file, parse_dates=["datetime"])
@@ -140,26 +139,47 @@ if not untagged.empty:
     for i, row in untagged.iterrows():
         col1, col2, col3 = st.columns([2, 2, 4])
         with col1:
-            st.write(f"🧾 {row['app']} - ₹{row['amount']}")
-        with col2:
-            category = st.selectbox(
-                f"Category for {row['app']}",
-                options=list(need_want_map.keys()),
-                key=f"tag_{i}"
-            )
-        with col3:
-            if st.button("Save", key=f"save_{i}"):
-                df.at[i, "category"] = category
-                df.at[i, "need_or_want"] = need_want_map[category]  # Add the new column
-                df.to_csv("mock_transactions_detailed.csv", index=False)
-                st.success(f"✅ Category tagged as {category} ({need_want_map[category]})!")
+            date_range = st.sidebar.date_input("Select Date Range", value=[min_date, max_date])
 
-# --- TITLE --- #
-st.title("💰 AI Finance Assistant Dashboard")
+with st.sidebar.expander("Filters", expanded=True):
+    selected_type = st.multiselect(
+        "Select Type",
+        options=df["type"].unique(),
+        default=df["type"].unique()
+    )
+
+    selected_category = st.multiselect(
+        "Select Category",
+        options=df["category"].unique(),
+        default=df["category"].unique()
+    )
+
+    min_date = df["datetime"].min().date()
+    max_date = df["datetime"].max().date()
+
+    date_range = st.date_input("Select Date Range", value=[min_date, max_date])
+
+# Move this OUTSIDE the 'with' block
+df_filtered = df[
+    (df["type"].isin(selected_type)) &
+    (df["category"].isin(selected_category)) &
+    (df["datetime"].dt.date >= date_range[0]) &
+    (df["datetime"].dt.date <= date_range[1])
+]
+
+# ---- Filtered Data ----
+#f_filtered = df[
+    #(df["type"].isin(selected_type)) &
+    #df["category"].isin(selected_category)) &
+   # (df["datetime"].dt.date >= date_range[0]) &
+   # (df["datetime"].dt.date <= date_range[1])
+
+# ---- Navigation ----
+st.sidebar.title("Navigation")
 
 # --- SIDEBAR SETTINGS --- #
 with st.sidebar:
-    st.title("⚙️ Dashboard Settings")
+    st.title("⚙ Dashboard Settings")
 
     # 🔐 Razorpay API Login
     with st.expander("🔑 Razorpay API Login", expanded=False):
@@ -263,7 +283,7 @@ def category_wise_forecasting():
         future_forecasts = {}
     for cat, forecast in future_forecasts.items():
         cat_budget = category_budgets.get(cat, 0)
-        forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
+        forecast_msg = f"📌 {cat}: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
         if forecast > cat_budget:
             st.warning(f"🚨 {forecast_msg} — Likely to overspend!")
         else:
@@ -397,7 +417,7 @@ elif menu_option == "🔍 Category-wise Expense Forecasting":
 
     for cat, forecast in future_forecasts.items():
         cat_budget = category_budgets.get(cat, 0)
-        forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
+        forecast_msg = f"📌 {cat}: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
         if forecast > cat_budget:
             st.warning(f"🚨 {forecast_msg} — Likely to overspend!")
         else:
@@ -504,7 +524,7 @@ for cat in df['category'].unique():
 
 for cat, forecast in future_forecasts.items():
     cat_budget = category_budgets.get(cat, 0)
-    forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
+    forecast_msg = f"📌 {cat}: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
     if forecast > cat_budget:
         st.warning(f"🚨 {forecast_msg} — Likely to overspend!")
     else:
@@ -575,12 +595,16 @@ filtered_df['hour'] = filtered_df['datetime'].dt.hour
 hourly = filtered_df.groupby('hour')['amount'].sum()
 st.line_chart(hourly)
 
-# --- CHATBOT --- #
-st.subheader("💬 Ask Your Assistant")
-user_input = st.chat_input("Talk to your finance assistant (e.g., 'How much did I spend on shopping in Feb 2024?')")
-if user_input:
-    response = chat_with_bot(user_input, filtered_df)
-    st.success(response)
+def ai_chatbot(df):
+    st.header("AI Chatbot")
+    st.write("Ask me questions about your financial behavior (coming soon).")
+
+    user_input = st.chat_input("Talk to your finance assistant", key="finance_chat_input")
+
+    if user_input:
+        st.write("You said:", user_input)
+        # Placeholder for actual AI response
+        st.write("🤖 I'm still learning! Soon I'll help you with smart financial advice.")
 
 # --- OPTIONAL ENHANCEMENTS SECTION --- #
 with st.expander("🛠 Optional Enhancements You Can Add"):
