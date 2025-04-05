@@ -1,22 +1,6 @@
 import streamlit as st
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
 import time
-
-st.set_page_config(page_title="AI Finance Assistant", layout="wide")
-
-# --- SPLASH SCREEN --- #
-if "show_splash" not in st.session_state:
-    st.session_state.show_splash = True
-    st.session_state.splash_start_time = time.time()
-
-if st.session_state.show_splash:
-    st.image("splash.png", use_column_width=True)  # Replace with your image file name
-    elapsed = time.time() - st.session_state.splash_start_time
-    if elapsed > 6:  # Show splash for 6 seconds
-        st.session_state.show_splash = False
-        st.rerun()
-    else:
-        st.stop()
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
