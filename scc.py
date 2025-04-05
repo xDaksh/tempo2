@@ -10,6 +10,14 @@ import time
 import threading
 
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
+# --- SPLASH SCREEN --- #
+if "splash_shown" not in st.session_state:
+    splash = st.empty()
+    with splash.container():
+        st.image("splash.png", use_container_width=True)
+        time.sleep(3)
+    splash.empty()
+    st.session_state["splash_shown"] = True
 
 # -------------------------------
 # Helper Functions
