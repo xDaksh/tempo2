@@ -8,7 +8,6 @@ from datetime import datetime
 import razorpay
 import time
 import threading
-
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
 # --- SPLASH SCREEN --- #
 if "splash_shown" not in st.session_state:
@@ -56,6 +55,8 @@ def load_data():
     return df
 
 df = load_data()
+    # Set current month for global use
+current_month = pd.Timestamp.now().strftime('%Y-%m')
 
 # -------------------------------
 # Sidebar Controls
@@ -327,14 +328,21 @@ elif selected_page == "📆 Weekly Spending":
 # -------------------------------
 elif selected_page == "🕒 Daily Spending Heatmap":
     st.subheader("🕒 Daily Spending Heatmap")
+
+if filtered_df.empty:
+    st.warning("⚠️ No data available for the selected filters.")
+else:
     heatmap_data = filtered_df.copy()
-    heatmap_data['date'] = heatmap_data['datetime'].dt.date
-    heatmap = heatmap_data.groupby(['date'])['amount'].sum().reset_index()
-    heatmap['date'] = pd.to_datetime(heatmap['date'])
+    heatmap_data['date'] = heatmap_data['datetime'].dt.floor('D')
+    heatmap = heatmap_data.groupby('date')['amount'].sum().reset_index()
+
     fig, ax = plt.subplots(figsize=(12, 4))
     sns.lineplot(x='date', y='amount', data=heatmap, ax=ax)
-    ax.set_title("Daily Spending Over Time")
+    ax.set_title("📈 Daily Spending Over Time")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Amount (₹)")
     st.pyplot(fig)
+
 
 # -------------------------------
 # Category Spending
