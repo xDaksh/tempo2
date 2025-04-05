@@ -347,7 +347,7 @@ else:
 # -------------------------------
 # Category Spending
 # -------------------------------
-elif selected_page == "📂 Spending by Category":
+if selected_page == "📂 Spending by Category":
     st.subheader("📂 Spending by Category")
     cat_data = filtered_df.groupby("category")["amount"].sum().sort_values(ascending=False)
     st.bar_chart(cat_data)
