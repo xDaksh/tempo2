@@ -9,7 +9,114 @@ import razorpay
 import time
 import threading
 
+# ✅ Move this to the top, before any other `st.` functions
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
+
+# Now continue with your login and main app logic...
+
+# --- SPLASH SCREEN --- #
+if "splash_shown" not in st.session_state:
+    splash = st.empty()
+    with splash.container():
+        st.image("splash.png", use_container_width=True)
+        time.sleep(3)
+    splash.empty()
+    st.session_state["splash_shown"] = True
+    
+    
+import streamlit as st
+import sqlite3
+import bcrypt
+import pandas as pd
+import time
+
+
+
+# Database Setup
+def init_db():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+def register_user(username, password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+    try:
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False
+
+def authenticate_user(username, password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+    if user and bcrypt.checkpw(password.encode(), user[0]):
+        return True
+    return False
+
+# Initialize DB
+init_db()
+
+# Session state for authentication
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+def login_page():
+    st.title("🔐 Welcome to AI Finance Assistant")
+    st.markdown("""
+    <style>
+    .stTextInput>div>div>input { text-align: center; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    choice = st.radio("Select an option", ["Login", "Register"])
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    
+    if choice == "Login":
+        if st.button("Login"):
+            if authenticate_user(username, password):
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = username
+                st.success("✅ Login Successful! Redirecting...")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("❌ Invalid username or password")
+    else:
+        if st.button("Register"):
+            if register_user(username, password):
+                st.success("✅ Registration Successful! Please log in.")
+            else:
+                st.error("⚠ Username already exists")
+
+# Authentication Check
+if not st.session_state["authenticated"]:
+    login_page()
+    st.stop()
+
+# Main App Starts Here
+st.sidebar.title(f"👋 Welcome, {st.session_state['username']}")
+st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"authenticated": False}))
+
+st.title("💰 AI Finance Assistant Dashboard")
+st.write("This is the main app content. You must be logged in to access this page.")
+
 
 # -------------------------------
 # Helper Functions
@@ -31,7 +138,7 @@ def get_category_warnings(df, category_budgets):
     for cat in df['category'].unique():
         spent = df[df['category'] == cat]['amount'].sum()
         if cat in category_budgets and spent > category_budgets[cat]:
-            warnings.append(f"⚠️ {cat}: Spent ₹{spent:.0f}, which exceeds your category budget of ₹{category_budgets[cat]:.0f}")
+            warnings.append(f"⚠ {cat}: Spent ₹{spent:.0f}, which exceeds your category budget of ₹{category_budgets[cat]:.0f}")
     return warnings
 
 def chat_with_bot(query, df):
@@ -48,6 +155,8 @@ def load_data():
     return df
 
 df = load_data()
+    # Set current month for global use
+current_month = pd.Timestamp.now().strftime('%Y-%m')
 
 # -------------------------------
 # Sidebar Controls
@@ -107,9 +216,7 @@ page_options = [
     "🔍 Category-wise Expense Forecasting",
     "📅 Monthly Spending",
     "📆 Weekly Spending",
-    "📅 Daily Spending",
     "📂 Spending by Category",
-    "⏳ Spending by Time of Day",
     "🏆 Achievement Nudges",
     "⚠ Budget Warnings",
     "💬 AI Chatbot",
@@ -315,35 +422,12 @@ elif selected_page == "📆 Weekly Spending":
     st.line_chart(weekly)
 
 # -------------------------------
-# Daily Heatmap
-# -------------------------------
-elif selected_page == "🕒 Daily Spending Heatmap":
-    st.subheader("🕒 Daily Spending Heatmap")
-    heatmap_data = filtered_df.copy()
-    heatmap_data['date'] = heatmap_data['datetime'].dt.date
-    heatmap = heatmap_data.groupby(['date'])['amount'].sum().reset_index()
-    heatmap['date'] = pd.to_datetime(heatmap['date'])
-    fig, ax = plt.subplots(figsize=(12, 4))
-    sns.lineplot(x='date', y='amount', data=heatmap, ax=ax)
-    ax.set_title("Daily Spending Over Time")
-    st.pyplot(fig)
-
-# -------------------------------
 # Category Spending
 # -------------------------------
 elif selected_page == "📂 Spending by Category":
     st.subheader("📂 Spending by Category")
     cat_data = filtered_df.groupby("category")["amount"].sum().sort_values(ascending=False)
     st.bar_chart(cat_data)
-
-# -------------------------------
-# Time of Day Spending
-# -------------------------------
-elif selected_page == "⏰ Spending by Time of Day":
-    st.subheader("⏰ Spending by Time of Day")
-    filtered_df['hour'] = filtered_df['datetime'].dt.hour
-    hourly = filtered_df.groupby('hour')['amount'].sum()
-    st.line_chart(hourly)
 
 # -------------------------------
 # Achievement Nudges
@@ -404,12 +488,12 @@ elif selected_page == "🛠 Optional Enhancements":
     st.markdown("""
     | Feature | Description |
     |--------|-------------|
-    | 🔐 *Login System* | Secure access with username/password using hashed passwords |
-    | 📥 *CSV Upload* | Upload your *own bank statements* in .csv format and view custom insights |
-    | 🧠 *Smarter Chatbot* | Use *OpenAI/GPT* to answer complex queries like "What were my top 3 unnecessary expenses last month?" |
-    | 🎯 *Budget Goals* | Set your own *monthly budget* and track progress visually |
-    | 🏆 *Gamified Nudges* | Earn fun *badges/achievements* when you hit savings goals |
-    | 📤 *Export Reports* | Export your data and insights to *PDF or Excel* format |
+    | 🔐 Login System | Secure access with username/password using hashed passwords |
+    | 📥 CSV Upload | Upload your own bank statements in .csv format and view custom insights |
+    | 🧠 Smarter Chatbot | Use OpenAI/GPT to answer complex queries like "What were my top 3 unnecessary expenses last month?" |
+    | 🎯 Budget Goals | Set your own monthly budget and track progress visually |
+    | 🏆 Gamified Nudges | Earn fun badges/achievements when you hit savings goals |
+    | 📤 Export Reports | Export your data and insights to PDF or Excel format |
     """)
     st.info("💡 Let me know which one you want to build next and I’ll guide you step by step!")
 
@@ -417,7 +501,7 @@ elif selected_page == "🛠 Optional Enhancements":
 # Footer (Optional)
 # -------------------------------
 st.markdown("""---""")
-st.markdown("© 2025 Finance Assistant • Built with ❤️ using Streamlit")
+st.markdown("© 2025 Finance Assistant • Built with ❤ using Streamlit")
 
 # -------------------------------
 # End of App
@@ -426,4 +510,3 @@ st.markdown("© 2025 Finance Assistant • Built with ❤️ using Streamlit")
 # - All sections are displayed via sidebar radio navigation
 # - No logic remains directly on the main page outside the conditionals
 # - Structure and original features are preserved
-
