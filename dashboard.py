@@ -220,15 +220,54 @@ import streamlit as st
 
 def dashboard():
     st.title("🏠 Dashboard")
-    st.write("Welcome to the Dashboard! 🚀")
+    if "filtered_df" not in locals():
+        filtered_df = df
+    st.subheader("📈 Quick Summary")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Spent", f"₹{filtered_df['amount'].sum():,.2f}")
+    col2.metric("Transactions", f"{len(filtered_df)}")
+    col3.metric("Avg. per Transaction", f"₹{filtered_df['amount'].mean():,.2f}")
+
+    st.subheader("📊 Monthly Budget Progress")
+    spent_this_month = filtered_df['amount'].sum()
+    budget = st.session_state.get("budget", 50000)
+    progress = min(spent_this_month / budget, 1.0) if budget > 0 else 0
+    st.progress(progress)
+    col1, col2 = st.columns(2)
+    col1.metric("Spent This Month", f"₹{spent_this_month:,.0f}")
+    col2.metric("Remaining Budget", f"₹{budget - spent_this_month:,.0f}")
 
 def expense_forecasting():
-    st.title("📊 Expense Forecasting")
-    st.write("This section predicts your upcoming expenses.")
+    st.title("📉 Expense Forecasting")
+    if "monthly_expenses" not in locals():
+        monthly_expenses = []
+
+    if len(monthly_expenses) >= 2:
+        last_month = monthly_expenses.iloc[-2]["amount"]
+        current_month = monthly_expenses.iloc[-1]["amount"]
+        growth_rate = (current_month - last_month) / last_month if last_month > 0 else 0
+        prediction = current_month * (1 + growth_rate)
+        st.info(f"📅 Predicted expense for next month: ₹{prediction:,.0f}")
+        if prediction > st.session_state.get("budget", 50000):
+            st.warning("🚨 Your next month's expenses may exceed your set budget!")
+    else:
+        st.info("📉 Not enough data to generate forecast.")
 
 def category_wise_forecasting():
     st.title("🔍 Category-wise Expense Forecasting")
-    st.write("View forecasts for different spending categories.")
+    if "filtered_df" not in locals():
+        filtered_df = df
+    if "category_budgets" not in locals():
+        category_budgets = {}
+    if "future_forecasts" not in locals():
+        future_forecasts = {}
+    for cat, forecast in future_forecasts.items():
+        cat_budget = category_budgets.get(cat, 0)
+        forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
+        if forecast > cat_budget:
+            st.warning(f"🚨 {forecast_msg} — Likely to overspend!")
+        else:
+            st.info(f"✅ {forecast_msg} — Looks safe.")
 
 def monthly_spending():
     st.title("📅 Monthly Spending")
@@ -252,15 +291,22 @@ def spending_by_time():
 
 def achievement_nudges():
     st.title("🏆 Achievement Nudges")
-    st.write("Earn rewards for smart financial decisions!")
+    badges = get_gamified_nudges(df, st.session_state.get("budget", 50000))
+    for badge in badges:
+        st.success(badge)
 
 def budget_warnings():
     st.title("⚠ Budget Warnings")
-    st.write("Get alerts when you're close to exceeding your budget.")
+    category_warnings = get_category_warnings(df, category_budgets)
+    for warning in category_warnings:
+        st.warning(warning)
 
 def ai_chatbot():
     st.title("💬 AI Chatbot")
-    st.write("Talk to our AI assistant for financial advice.")
+    user_input = st.chat_input("Talk to your finance assistant")
+    if user_input:
+        response = chat_with_bot(user_input, df)
+        st.success(response)
 
 # ─────────────────────────────
 # Page Mapping
@@ -288,83 +334,33 @@ st.sidebar.title("🔍 Navigation")
 st.sidebar.divider()
 
 selected_page = st.sidebar.radio("Select a section:", list(pages.keys()))
+menu_option = selected_page
 
 # ─────────────────────────────
 # Display Selected Page
 # ─────────────────────────────
 
-pages[selected_page]()  # Calls the appropriate function
-
-
-# Function to display the correct section
-def show_section(title, content):
-    st.title(title)
-    st.write(content)
-
-# Display the selected section dynamically
-if menu_option == "🏠 Dashboard":
-    show_section("🏠 Dashboard", "Welcome to the Dashboard! 🚀")
-
-elif menu_option == "📊 Expense Forecasting":
-    show_section("📊 Expense Forecasting", "This section predicts your upcoming expenses.")
-
-elif menu_option == "🔍 Category-wise Expense Forecasting":
-    show_section("🔍 Category-wise Expense Forecasting", "View forecasts for different spending categories.")
-
-elif menu_option == "📅 Monthly Spending":
-    show_section("📅 Monthly Spending", "Track your monthly spending trends.")
-
-elif menu_option == "📆 Weekly Spending":
-    show_section("📆 Weekly Spending", "View weekly spending insights.")
-
-elif menu_option == "📅 Daily Spending":
-    show_section("📅 Daily Spending", "Analyze your daily spending patterns.")
-
-elif menu_option == "📂 Spending by Category":
-    show_section("📂 Spending by Category", "Breakdown of spending across categories.")
-
-elif menu_option == "⏳ Spending by Time of Day":
-    show_section("⏳ Spending by Time of Day", "Check when you spend the most.")
-
-elif menu_option == "🏆 Achievement Nudges":
-    show_section("🏆 Achievement Nudges", "Earn rewards for smart financial decisions!")
-
-elif menu_option == "⚠ Budget Warnings":
-    show_section("⚠ Budget Warnings", "Get alerts when you're close to exceeding your budget.")
-
-elif menu_option == "💬 AI Chatbot":
-    show_section("💬 AI Chatbot", "Talk to our AI assistant for financial advice.")
-
-
-# Mapping menu option to functions
-section_map = {
-    "🏠 Dashboard": dashboard,
-    "📊 Expense Forecasting": expense_forecasting,
-    "🔍 Category-wise Expense Forecasting": category_forecasting,
-    "📅 Monthly Spending": monthly_spending,
-    "📆 Weekly Spending": weekly_spending,
-    "📅 Daily Spending": daily_spending,
-    "📂 Spending by Category": spending_by_category,
-    "⏳ Spending by Time of Day": spending_by_time,
-    "🏆 Achievement Nudges": achievement_nudges,
-    "⚠ Budget Warnings": budget_warnings,
-    "💬 AI Chatbot": ai_chatbot
-}
-
-# Display the selected section
-if menu_option in section_map:
-    show_section(menu_option, section_map[menu_option])
+pages[selected_page]()
 
 
 
-# --- MAIN PAGE CONTENT BASED ON SELECTION --- #
+
+# Ensure required variables are defined
+if "filtered_df" not in locals():
+    filtered_df = df
+if "category_budgets" not in locals():
+    category_budgets = {}
+if "future_forecasts" not in locals():
+    future_forecasts = {}
+if "budget" not in locals():
+    budget = 50000
+if "monthly_expenses" not in locals():
+    monthly_expenses = pd.DataFrame(columns=["month", "amount"])
+
+# --- MAIN PAGE CONTENT --- #
 if menu_option == "🏠 Dashboard":
     st.title("💰 AI Finance Assistant Dashboard")
-    
-    # Ensure filtered_df is defined
-    if "filtered_df" not in locals():
-        filtered_df = df  # Assign it to your main DataFrame if not already filtered
-    
+
     # Quick Summary
     st.subheader("📈 Quick Summary")
     col1, col2, col3 = st.columns(3)
@@ -374,83 +370,8 @@ if menu_option == "🏠 Dashboard":
 
     # Monthly Budget Progress
     st.subheader("📊 Monthly Budget Progress")
-    spent_this_month = filtered_df['amount'].sum()  # Calculate spent amount
-    budget = 50000  # Set a default budget if not defined
-    progress = min(spent_this_month / budget, 1.0) if budget > 0 else 0  # Ensure progress is between 0 and 1
-    st.progress(progress)
-    
-    col1, col2 = st.columns(2)
-    col1.metric("Spent This Month", f"₹{spent_this_month:,.0f}")
-    col2.metric("Remaining Budget", f"₹{budget - spent_this_month:,.0f}")
-
-elif menu_option == "📊 Expense Forecasting":
-    st.subheader("📉 Expense Forecasting")
-
-    # Ensure monthly_expenses is defined
-    if "monthly_expenses" not in locals():
-        monthly_expenses = []  # Initialize properly
-
-    if len(monthly_expenses) >= 2:
-        last_month = monthly_expenses.iloc[-2]["amount"]
-        current_month = monthly_expenses.iloc[-1]["amount"]
-        growth_rate = (current_month - last_month) / last_month if last_month > 0 else 0
-        prediction = current_month * (1 + growth_rate)
-        
-        st.info(f"📅 Predicted expense for next month: ₹{prediction:,.0f}")
-        
-        if prediction > budget:
-            st.warning("🚨 Your next month's expenses may exceed your set budget!")
-    else:
-        st.info("📉 Not enough data to generate forecast.")
-
-elif menu_option == "🔍 Category-wise Expense Forecasting":
-    st.subheader("🔍 Category-wise Expense Forecasting")
-
-   # Ensure filtered_df is defined
-if "filtered_df" not in locals():
-    filtered_df = df  # Assign to the main DataFrame
-
-# Ensure category_budgets is defined
-if "category_budgets" not in locals():
-    category_budgets = {}
-
-# Ensure future_forecasts is defined
-# Ensure future_forecasts is defined
-if "future_forecasts" not in locals():
-    future_forecasts = {}  # Initialize to avoid errors
-
-if menu_option == "🔍 Category-wise Expense Forecasting":  # <- Added an if condition before elif
-    for cat, forecast in future_forecasts.items():
-        cat_budget = category_budgets.get(cat, 0)
-        forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
-        if forecast > cat_budget:
-            st.warning(f"🚨 {forecast_msg} — Likely to overspend!")
-        else:
-            st.info(f"✅ {forecast_msg} — Looks safe.")
-
-elif menu_option == "🏆 Achievement Nudges":  # Now it's valid
-    st.subheader("🏆 Achievement Nudges")
-    badges = get_gamified_nudges(filtered_df, budget)
-    for badge in badges:
-        st.success(badge)
-
-elif menu_option == "⚠ Budget Warnings":
-    st.subheader("⚠ Category Budget Warnings")
-    category_warnings = get_category_warnings(filtered_df, category_budgets)
-    for warning in category_warnings:
-        st.warning(warning)
-
-elif menu_option == "💬 AI Chatbot":
-    st.subheader("💬 Ask Your Assistant")
-    user_input = st.chat_input("Talk to your finance assistant", key="chatbot_input")
-    if user_input:
-        response = chat_with_bot(user_input, filtered_df)
-        st.success(response)
-
-
-
-    # Monthly Budget Progress
-    st.subheader("📊 Monthly Budget Progress")
+    spent_this_month = filtered_df["amount"].sum()
+    progress = min(spent_this_month / budget, 1.0) if budget > 0 else 0
     st.progress(progress)
     col1, col2 = st.columns(2)
     col1.metric("Spent This Month", f"₹{spent_this_month:,.0f}")
@@ -459,18 +380,13 @@ elif menu_option == "💬 AI Chatbot":
 elif menu_option == "📊 Expense Forecasting":
     st.subheader("📉 Expense Forecasting")
 
-    # Ensure monthly_expenses is defined
-    if "monthly_expenses" not in locals():
-        monthly_expenses = []  # Initialize properly
-
     if len(monthly_expenses) >= 2:
         last_month = monthly_expenses.iloc[-2]["amount"]
         current_month = monthly_expenses.iloc[-1]["amount"]
         growth_rate = (current_month - last_month) / last_month if last_month > 0 else 0
         prediction = current_month * (1 + growth_rate)
-        
         st.info(f"📅 Predicted expense for next month: ₹{prediction:,.0f}")
-        
+
         if prediction > budget:
             st.warning("🚨 Your next month's expenses may exceed your set budget!")
     else:
@@ -479,10 +395,6 @@ elif menu_option == "📊 Expense Forecasting":
 elif menu_option == "🔍 Category-wise Expense Forecasting":
     st.subheader("🔍 Category-wise Expense Forecasting")
 
-    # Ensure future_forecasts is defined
-    if "future_forecasts" not in locals():
-        future_forecasts = {}  # Initialize to avoid errors
-    
     for cat, forecast in future_forecasts.items():
         cat_budget = category_budgets.get(cat, 0)
         forecast_msg = f"📌 *{cat}*: Forecasted ₹{forecast:.0f} / Budget ₹{cat_budget}"
@@ -493,12 +405,14 @@ elif menu_option == "🔍 Category-wise Expense Forecasting":
 
 elif menu_option == "🏆 Achievement Nudges":
     st.subheader("🏆 Achievement Nudges")
+    df_this_month = filtered_df  # Assuming current month is already filtered
     badges = get_gamified_nudges(df_this_month, budget)
     for badge in badges:
         st.success(badge)
 
 elif menu_option == "⚠ Budget Warnings":
     st.subheader("⚠ Category Budget Warnings")
+    df_this_month = filtered_df  # Assuming current month is already filtered
     category_warnings = get_category_warnings(df_this_month, category_budgets)
     for warning in category_warnings:
         st.warning(warning)
