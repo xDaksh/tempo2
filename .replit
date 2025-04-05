@@ -3,5 +3,18 @@ modules = ["python-3.12"]
 [nix]
 channel = "stable-24_05"
 
-[deployment]
-run = ["sh", "-c", "streamlit run dashboard.py --server.address=0.0.0.0 --server.port=5000"]
+[workflows]
+runButton = "Run"
+
+[[workflows.workflow]]
+name = "Run"
+author = 41168791
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run dashboard.py --server.address=0.0.0.0 --server.port=5000"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

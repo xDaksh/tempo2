@@ -1,22 +1,18 @@
 import streamlit as st
-st.set_page_config(page_title="AI Finance Assistant", layout="wide")
 import time
 
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
+if "splash_shown" not in st.session_state:
+    st.session_state.splash_shown = False
 
-# --- SPLASH SCREEN --- #
-if "show_splash" not in st.session_state:
-    st.session_state.show_splash = True
-    st.session_state.splash_start_time = time.time()
+if not st.session_state.splash_shown:
+    st.image("splash.png", use_container_width=True)
+    ##st.markdown("<h3 style='text-align: center;'>🚀 Loading your AI Finance Assistant...</h3>", unsafe_allow_html=True)
+    time.sleep(4)  # ⏱ Show splash screen for 6 seconds
+    st.session_state.splash_shown = True
+    st.rerun()  # 🔁 Refresh the app to remove the splash screen
+    st.stop()  # ⛔ Stop rest of the app from loading until rerun
 
-if st.session_state.show_splash:
-    st.image("splash.png", use_column_width=True)  # Replace with your image file name
-    elapsed = time.time() - st.session_state.splash_start_time
-    if elapsed > 6:  # Show splash for 6 seconds
-        st.session_state.show_splash = False
-        st.rerun()
-    else:
-        st.stop()
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
