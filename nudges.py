@@ -1,79 +1,120 @@
 import pandas as pd
+import numpy as np
+import datetime
 
-def get_gamified_nudges(df, budget, category_budgets=None):
-    nudges = []
-
+# AI-Powered Spending Predictions
+def predict_overspending(df, budget):
     if df.empty:
-        return ["📭 No transactions found for this period. Try adjusting your filters!"]
+        return "📭 No transactions found for prediction."
+    
+    avg_daily_spend = df.groupby(df['datetime'].dt.date)['amount'].sum().mean()
+    days_left = (df['datetime'].max().date().replace(day=28) - datetime.date.today()).days
+    projected_spend = avg_daily_spend * days_left + df["amount"].sum()
+    
+    if projected_spend > budget:
+        return f"📊 Based on your spending trend, you may exceed your budget by ₹{projected_spend - budget:.0f}! Consider adjusting your expenses."
+    return "✅ Your spending is on track!"
 
-    total_spent = df["amount"].sum()
-    total_saved = max(budget - total_spent, 0)
-    num_txns = len(df)
-
-    # 🏅 Budget milestones
-    if total_spent < budget * 0.5:
-        nudges.append("🏅 Great job! You've spent less than 50% of your budget!")
-    elif total_spent < budget:
-        nudges.append("✅ You're within your budget! Keep it going!")
-    else:
-        nudges.append("🚨 You've exceeded your budget. Let’s get back on track!")
-
-    # 🔥 Low-spend streaks
-    df['date'] = df['datetime'].dt.date
-    daily_spend = df.groupby("date")["amount"].sum()
-    low_spend_days = (daily_spend < 200).sum()
-    if low_spend_days >= 3:
-        nudges.append(f"🔥 You had {low_spend_days} low-spend days! That’s solid discipline!")
-
-    # 🎯 Single category dominance
-    cat_spend = df.groupby("category")["amount"].sum()
-    if not cat_spend.empty:
-        top_category = cat_spend.idxmax()
-        top_amount = cat_spend.max()
-        if top_amount / total_spent > 0.4:
-            nudges.append(f"🧐 Most of your spend went to **{top_category}**. Consider dialing it down.")
-
-    # 🎖️ Consistent saving habit
-    daily_average = total_spent / len(daily_spend)
-    if daily_average < 500:
-        nudges.append("🎖️ You’re averaging under ₹500/day. That’s budget champion behavior!")
-
-    # 🧠 Spending awareness
-    high_txn_days = (daily_spend > 2000).sum()
-    if high_txn_days > 2:
-        nudges.append(f"⚠️ You had {high_txn_days} high-spend days. Watch out for spikes!")
-
-    # 🏆 Saving badges
-    if total_saved >= 2000:
-        nudges.append("💎 You earned the **Diamond** badge for saving ₹2000+!")
-    elif total_saved >= 1001:
-        nudges.append("🏆 You earned the **Platinum** badge for saving ₹1001–2000!")
-    elif total_saved >= 501:
-        nudges.append("🥇 You earned the **Gold** badge for saving ₹501–1000!")
-    elif total_saved >= 101:
-        nudges.append("🥈 You earned the **Silver** badge for saving ₹101–500!")
-    elif total_saved >= 1:
-        nudges.append("🥉 You earned the **Bronze** badge for saving ₹1–100!")
-
+# Contextual Spending Nudges
+def spending_trends_nudges(df):
+    nudges = []
+    if df.empty:
+        return nudges
+    
+    df['day_of_week'] = df['datetime'].dt.day_name()
+    weekend_spend = df[df['day_of_week'].isin(["Saturday", "Sunday"])]
+    weekday_spend = df[~df['day_of_week'].isin(["Saturday", "Sunday"])]
+    
+    if not weekend_spend.empty and not weekday_spend.empty:
+        if weekend_spend["amount"].sum() > weekday_spend["amount"].sum() * 1.3:
+            nudges.append("🚀 Your weekend spends are 30% higher than weekdays! Try planning meals at home to save.")
     return nudges
 
+# Personalized Goal-Setting & Streaks
+def savings_streak_nudges(df, budget):
+    nudges = []
+    total_saved = max(budget - df["amount"].sum(), 0)
+    
+    if total_saved >= 500:
+        nudges.append(f"🌟 You've saved ₹{total_saved}! Try pushing it to ₹750 next week!")
+    return nudges
 
-def get_category_warnings(df, category_budgets):
+# Custom Achievements & Leaderboard
+def achievement_badges(df, budget):
+    total_saved = max(budget - df["amount"].sum(), 0)
+    badges = []
+    
+    if total_saved >= 2000:
+        badges.append("💎 You earned the **Diamond** badge for saving ₹2000+!")
+    elif total_saved >= 1000:
+        badges.append("🏆 Platinum badge unlocked! Keep going!")
+    elif total_saved >= 500:
+        badges.append("🥇 Gold badge achieved! You're on fire!")
+    return badges
+
+# Streak-Based Cashback (Mocked Rewards)
+def cashback_rewards(df, budget):
+    total_saved = max(budget - df["amount"].sum(), 0)
+    if total_saved >= 1000:
+        return "🎁 You unlocked a mock ₹50 discount for saving ₹1000+ this month!"
+    return ""
+
+# Instant Notifications on High Spending
+def high_spending_alert(df, threshold=2000):
+    if df["amount"].max() > threshold:
+        return f"⚠️ You just spent ₹{df['amount'].max()}! Consider reviewing your expenses."
+    return ""
+
+# Smart Category-Based Budget Adjustments
+def adjust_category_budgets(df, category_budgets):
     warnings = []
-
-    if df.empty:
-        return warnings
-
     df['month'] = df['datetime'].dt.to_period('M')
     monthly_df = df[df['month'] == pd.Timestamp.now().to_period('M')]
-
+    
     cat_spending = monthly_df.groupby("category")["amount"].sum()
-
+    
     for category, spent in cat_spending.items():
         budget = category_budgets.get(category, None)
-        if budget:
-            ratio = spent / budget
-            if ratio > 0.6:
-                warnings.append(f"⚠️ You've spent ₹{spent:.0f} in **{category}**, which is over 60% of its ₹{budget} budget!")
+        if budget and spent > budget * 0.8:
+            warnings.append(f"🔄 Consider shifting funds from other categories as **{category}** is nearing its budget!")
+    return warnings
+
+# 📌 NEW FUNCTION: Get Category-Specific Warnings
+def get_category_warnings(df, category_budgets):
+    """
+    Generates warnings if spending in any category exceeds the budget.
+    """
+    warnings = []
+    if df.empty or not category_budgets:
+        return warnings
+
+    category_totals = df.groupby("category")["amount"].sum()
+
+    for category, spent in category_totals.items():
+        budget = category_budgets.get(category, 0)
+        if spent > budget:
+            warnings.append(f"⚠ Over budget in {category}: Spent ₹{spent:.0f} / Budget ₹{budget}")
 
     return warnings
+
+# Main function to get all nudges
+def get_gamified_nudges(df, budget, category_budgets=None):
+    nudges = []
+    
+    nudges.extend(spending_trends_nudges(df))
+    nudges.append(predict_overspending(df, budget))
+    nudges.extend(savings_streak_nudges(df, budget))
+    nudges.extend(achievement_badges(df, budget))
+    cashback_msg = cashback_rewards(df, budget)
+    if cashback_msg:
+        nudges.append(cashback_msg)
+    
+    high_spend_msg = high_spending_alert(df)
+    if high_spend_msg:
+        nudges.append(high_spend_msg)
+    
+    category_warnings = get_category_warnings(df, category_budgets)
+    nudges.extend(category_warnings)
+    
+    return nudges
+
