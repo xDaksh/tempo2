@@ -116,9 +116,7 @@ page_options = [
     "🔍 Category-wise Expense Forecasting",
     "📅 Monthly Spending",
     "📆 Weekly Spending",
-    "📅 Daily Spending",
     "📂 Spending by Category",
-    "⏳ Spending by Time of Day",
     "🏆 Achievement Nudges",
     "⚠ Budget Warnings",
     "💬 AI Chatbot",
@@ -330,20 +328,6 @@ elif selected_page == "📂 Spending by Category":
     st.subheader("📂 Spending by Category")
     cat_data = filtered_df.groupby("category")["amount"].sum().sort_values(ascending=False)
     st.bar_chart(cat_data)
-
-# -------------------------------
-# Time of Day Spending
-# -------------------------------
-elif selected_page == "⏰ Spending by Time of Day":
-    st.subheader("⏰ Spending by Time of Day")
-    if filtered_df.empty:
-        st.warning("⚠️ No data available for the selected filters.")
-    else:
-        temp_df = filtered_df.copy()
-        temp_df['hour'] = temp_df['datetime'].dt.hour
-        all_hours = pd.Series(range(24), name="hour")
-        hourly = temp_df.groupby('hour')['amount'].sum().reindex(all_hours, fill_value=0)
-        st.line_chart(hourly)
 
 # -------------------------------
 # Achievement Nudges
