@@ -99,7 +99,8 @@ def load_data():
 
 
 
-if uploaded_file:
+uploaded_file = st.file_uploader("Upload your transaction data (CSV)", type="csv")
+if uploaded_file is not None:
     df = pd.read_csv(uploaded_file, parse_dates=["datetime"])
     st.success("✅ File uploaded and loaded successfully!")
 else:
