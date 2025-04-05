@@ -336,15 +336,14 @@ elif selected_page == "📂 Spending by Category":
 # -------------------------------
 elif selected_page == "⏰ Spending by Time of Day":
     st.subheader("⏰ Spending by Time of Day")
-
-if filtered_df.empty:
-    st.warning("⚠️ No data available for the selected filters.")
-else:
-    temp_df = filtered_df.copy()
-    temp_df['hour'] = temp_df['datetime'].dt.hour
-    all_hours = pd.Series(range(24), name="hour")
-    hourly = temp_df.groupby('hour')['amount'].sum().reindex(all_hours, fill_value=0)
-    st.line_chart(hourly)
+    if filtered_df.empty:
+        st.warning("⚠️ No data available for the selected filters.")
+    else:
+        temp_df = filtered_df.copy()
+        temp_df['hour'] = temp_df['datetime'].dt.hour
+        all_hours = pd.Series(range(24), name="hour")
+        hourly = temp_df.groupby('hour')['amount'].sum().reindex(all_hours, fill_value=0)
+        st.line_chart(hourly)
 
 # -------------------------------
 # Achievement Nudges
