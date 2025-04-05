@@ -1,7 +1,0 @@
-from PIL import Image
-
-# Open the JPG image
-jpg_image = Image.open("splash.jpg")
-
-# Convert and save as PNG
-jpg_image.save("converted_image.png", "PNG")
