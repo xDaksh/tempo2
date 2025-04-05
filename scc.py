@@ -5,6 +5,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from datetime import datetime
+import razorpay
+import time
+import threading
 
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
 
@@ -80,6 +83,23 @@ for cat in categories:
     cat_budget = st.sidebar.number_input(f"{cat} Budget", min_value=0, value=5000, key=f"{cat}_budget")
     category_budgets[cat] = cat_budget
 
+# Razorpay Authentication
+st.sidebar.markdown("### 💳 Razorpay Login")
+if "razorpay_key" not in st.session_state:
+    st.session_state["razorpay_key"] = ""
+    st.session_state["razorpay_secret"] = ""
+
+api_key = st.sidebar.text_input("API Key", type="password", value=st.session_state["razorpay_key"])
+api_secret = st.sidebar.text_input("API Secret", type="password", value=st.session_state["razorpay_secret"])
+
+if st.sidebar.button("🔓 Authenticate Razorpay", type="primary"):
+    if api_key and api_secret:
+        st.session_state["razorpay_key"] = api_key
+        st.session_state["razorpay_secret"] = api_secret
+        st.sidebar.success("✅ Authentication Successful!")
+    else:
+        st.sidebar.error("⚠ Please enter both API Key and Secret.")
+
 # Navigation Option
 page_options = [
     "🏠 Dashboard",
@@ -92,7 +112,8 @@ page_options = [
     "⏳ Spending by Time of Day",
     "🏆 Achievement Nudges",
     "⚠ Budget Warnings",
-    "💬 AI Chatbot"
+    "💬 AI Chatbot",
+    "💳 Razorpay Tracking"
 ]
 
 selected_page = st.sidebar.radio("Go to section:", page_options)
@@ -107,6 +128,7 @@ filtered_df = df[
     (df["datetime"].dt.date >= date_range[0]) &
     (df["datetime"].dt.date <= date_range[1])
 ]
+
 # -------------------------------
 # Dashboard Page
 # -------------------------------
@@ -120,7 +142,6 @@ if selected_page == "🏠 Dashboard":
     col2.metric("Transactions", f"{len(filtered_df)}")
     col3.metric("Avg. per Transaction", f"₹{filtered_df['amount'].mean():,.2f}")
 
-    # Budget Progress
     current_month = pd.Timestamp.now().strftime('%Y-%m')
     df_this_month = filtered_df[filtered_df["datetime"].dt.to_period('M').astype(str) == current_month]
     spent_this_month = df_this_month["amount"].sum()
@@ -138,10 +159,6 @@ if selected_page == "🏠 Dashboard":
         cat_budget = category_budgets.get(cat, 0)
         cat_remaining = cat_budget - cat_spent
         st.write(f"{cat}: Spent ₹{cat_spent:.0f} / ₹{cat_budget} | Remaining: ₹{cat_remaining:.0f}")
-
-# -------------------------------
-# Expense Forecasting Page
-# -------------------------------
 
 elif selected_page == "📊 Expense Forecasting":
     st.subheader("📉 Expense Forecasting")
@@ -164,6 +181,90 @@ elif selected_page == "📊 Expense Forecasting":
             st.warning("🚨 Your next month's expenses may exceed your set budget!")
     else:
         st.info("📉 Not enough data to generate forecast.")
+
+elif selected_page == "💳 Razorpay Tracking":
+    st.subheader("💳 Live Razorpay Transactions")
+
+    def fetch_latest_payments():
+        if not st.session_state["razorpay_key"] or not st.session_state["razorpay_secret"]:
+            st.warning("⚠ Please authenticate with Razorpay API.")
+            return []
+
+        try:
+            client = razorpay.Client(auth=(st.session_state["razorpay_key"], st.session_state["razorpay_secret"]))
+            payments = client.payment.all({"count": 10})
+            transactions = []
+            for payment in payments['items']:
+                transactions.append({
+                    "id": payment["id"],
+                    "amount": payment["amount"] / 100,
+                    "method": payment.get("method", "Unknown").title(),
+                    "status": payment["status"],
+                    "created_at": pd.to_datetime(payment["created_at"], unit='s')
+                })
+            return transactions
+        except Exception as e:
+            st.error(f"Error: {e}")
+            return []
+
+    def start_realtime_tracking():
+        seen_ids = set()
+        st.session_state["tracking"] = True
+        while st.session_state["tracking"]:
+            transactions = fetch_latest_payments()
+            new_rows = []
+            for txn in transactions:
+                if txn["id"] not in seen_ids and txn["status"] == "captured":
+                    seen_ids.add(txn["id"])
+                    new_rows.append(txn)
+
+            if new_rows:
+                new_df = pd.DataFrame(new_rows)
+                try:
+                    existing_df = pd.read_csv("razorpay_payments.csv")
+                    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+                except FileNotFoundError:
+                    combined_df = new_df
+
+                combined_df.to_csv("razorpay_payments.csv", index=False)
+                st.success(f"✅ {len(new_rows)} new transactions added!")
+            time.sleep(5)
+
+    def start_tracking_thread():
+        if not st.session_state.get("tracking", False):
+            thread = threading.Thread(target=start_realtime_tracking, daemon=True)
+            thread.start()
+            st.success("✅ Real-time tracking started!")
+
+    def stop_tracking():
+        st.session_state["tracking"] = False
+        st.warning("⚠ Tracking stopped!")
+
+    col1, col2 = st.columns(2)
+    if col1.button("▶ Start Tracking", use_container_width=True):
+        start_tracking_thread()
+    if col2.button("⏹ Stop Tracking", use_container_width=True):
+        stop_tracking()
+
+    if st.button("🔄 Refresh Transactions"):
+        transactions = fetch_latest_payments()
+        if transactions:
+            for txn in transactions:
+                status_color = {
+                    "captured": "green",
+                    "failed": "red",
+                    "created": "orange"
+                }.get(txn["status"], "gray")
+
+                st.markdown(f"""
+                    <div style="border-left: 4px solid {status_color}; padding: 10px; margin: 5px 0; background-color: #f9f9f9; border-radius: 6px;">
+                        🆔 <b>{txn['id']}</b><br>
+                        ₹{txn['amount']} | 🏦 {txn['method']} | <b style="color:{status_color}">{txn['status'].title()}</b><br>
+                        📅 {txn['created_at']}
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.warning("No transactions found.")
 
 # -------------------------------
 # Category-wise Forecasting Page
