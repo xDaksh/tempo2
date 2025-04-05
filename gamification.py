@@ -6,22 +6,22 @@ class BadgeSystem:
     def __init__(self):
         self.badges = {
             'bronze': [
-                {'threshold': 1000, 'icon': '🥉', 'name': 'Bronze Saver I'},
-                {'threshold': 2000, 'icon': '🥉', 'name': 'Bronze Saver II'},
-                {'threshold': 3000, 'icon': '🥉', 'name': 'Bronze Saver III'}
+                {'threshold': 100, 'icon': '🥉', 'name': 'Bronze Saver I'},
+                {'threshold': 200, 'icon': '🥉', 'name': 'Bronze Saver II'},
+                {'threshold': 300, 'icon': '🥉', 'name': 'Bronze Saver III'}
             ],
             'silver': [
-                {'threshold': 5000, 'icon': '🥈', 'name': 'Silver Saver I'},
-                {'threshold': 7500, 'icon': '🥈', 'name': 'Silver Saver II'},
-                {'threshold': 10000, 'icon': '🥈', 'name': 'Silver Saver III'}
+                {'threshold': 500, 'icon': '🥈', 'name': 'Silver Saver I'},
+                {'threshold': 750, 'icon': '🥈', 'name': 'Silver Saver II'},
+                {'threshold': 1000, 'icon': '🥈', 'name': 'Silver Saver III'}
             ],
             'gold': [
-                {'threshold': 15000, 'icon': '🥇', 'name': 'Gold Saver I'},
-                {'threshold': 20000, 'icon': '🥇', 'name': 'Gold Saver II'},
-                {'threshold': 25000, 'icon': '🥇', 'name': 'Gold Saver III'}
+                {'threshold': 1500, 'icon': '🥇', 'name': 'Gold Saver I'},
+                {'threshold': 2000, 'icon': '🥇', 'name': 'Gold Saver II'},
+                {'threshold': 2500, 'icon': '🥇', 'name': 'Gold Saver III'}
             ],
             'diamond': [
-                {'threshold': 50000, 'icon': '💎', 'name': 'Diamond Saver'}
+                {'threshold': 5000, 'icon': '💎', 'name': 'Diamond Saver'}
             ]
         }
 
