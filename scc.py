@@ -44,9 +44,14 @@ if "splash_shown" not in st.session_state:
 
     splash = st.empty()
 
+<<<<<<< HEAD
     # Load and Display Responsive Image
     image_path = "splash.png"  # Replace with your actual image file
     splash.image(image_path)
+=======
+    # Display the splash screen image using st.image and set it to the center
+    splash.image("splash.png", width=800)
+>>>>>>> 30e9740f8952811078b549f0a9f47ec23fcc44c8
 
     # Use a progress bar instead of freezing
     progress_bar = st.progress(0)
