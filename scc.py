@@ -23,7 +23,7 @@ if "splash_shown" not in st.session_state:
     splash = st.empty()
 
     # Display the splash screen image using st.image and set it to the center
-    splash.image("splash.png", use_container_width=True)
+    splash.image("splash.png", width=800)
 
     # Wait for 3 seconds to display the splash screen
     time.sleep(3)
