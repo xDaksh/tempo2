@@ -82,6 +82,11 @@ import bcrypt
 import pandas as pd
 import time
 
+# Initialize session state for budget if it does not exist
+if "budget" not in st.session_state:
+    st.session_state["budget"] = 20000  # Default budget value (adjust as needed)
+
+# Now you can safely use st.session_state["budget"] later in the code
 
 
 # Database Setup
@@ -169,6 +174,29 @@ st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"authentic
 #st.title("💰 AI Finance Assistant Dashboard")
 #st.write("This is the main app content. You must be logged in to access this page.")
 
+def pre_populate_badges_for_previous_months(df, budget):
+    # Calculate the months to pre-populate (e.g., all months prior to the current month)
+    months = df['datetime'].dt.to_period('M').unique()
+    today = datetime.today().date()
+
+    badges_earned_for_previous_months = []
+
+    for month in months:
+        if month < pd.to_datetime(today.replace(day=1)).to_period('M'):  # if the month is before this month
+            # Filter data for this month
+            monthly_data = df[df['datetime'].dt.to_period('M') == month]
+            total_spent = monthly_data["amount"].sum()
+            total_saved = budget - total_spent
+
+            # Calculate badges for the month
+            badge_system = BadgeSystem()
+            earned_badges = badge_system.calculate_badges(total_saved)
+
+            for badge in earned_badges:
+                badges_earned_for_previous_months.append(f"🏅 {badge['name']} for {month}")
+
+    return badges_earned_for_previous_months
+
 
 # -------------------------------
 # Helper Functions
@@ -220,7 +248,37 @@ def get_category_warnings(df, category_budgets):
     return warnings
 
 def chat_with_bot(query, df):
-    return "🤖 I'm still learning! Soon I'll provide smart financial advice."
+    if not st.session_state.get("openai_api_key"):
+        return "⚠ Please enter your OpenAI API Key in the sidebar."
+
+    openai.api_key = st.session_state["openai_api_key"]
+
+    # Prepare some context from your data
+    recent_data = df.tail(10)[["datetime", "amount", "category", "type"]].to_string(index=False)
+
+    prompt = f"""
+    You are a smart personal finance assistant. Help me analyze and understand my spending.
+
+    Here are my recent transactions:
+    {recent_data}
+
+    Now answer this question based on the data above:
+
+    {query}
+
+    Be brief, helpful, and clear.
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5)
+            return response.choices[0].message.content.strip()
+    except Exception as e:
+                return f"🚨 Error: {e}"
+
+
 
 # -------------------------------
 # Load Data
@@ -235,6 +293,11 @@ def load_data():
 df = load_data()
     # Set current month for global use
 current_month = pd.Timestamp.now().strftime('%Y-%m')
+badges_from_previous_months = pre_populate_badges_for_previous_months(df, st.session_state.budget)
+
+# Show these badges in the app
+for badge in badges_from_previous_months:
+    st.success(badge)
 
 # -------------------------------
 # Sidebar Controls
@@ -547,6 +610,8 @@ elif selected_page == "📂 Spending by Category":
 # -------------------------------
 elif selected_page == "🏆 Achievement Nudges":
     st.subheader("🏆 Achievement Nudges")
+    for badge in badges_from_previous_months:
+        st.success(badge)
     df_this_month = filtered_df[filtered_df["datetime"].dt.to_period('M').astype(str) == current_month]
     badges = get_gamified_nudges(df_this_month, budget)
     for badge in badges:
@@ -585,9 +650,9 @@ elif selected_page == "⚠ Budget Warnings":
 # -------------------------------
 elif selected_page == "💬 AI Chatbot":
     st.subheader("💬 Ask Your Assistant")
-    st.write("Ask me questions about your financial behavior (more intelligent answers coming soon!)")
+    st.write("Ask me questions about your financial behavior")
 
-    user_input = st.chat_input("Talk to your finance assistant")
+    user_input = st.chat_input("Talk to your financal assistant Penny")
     if user_input:
         response = chat_with_bot(user_input, filtered_df)
         st.success(response)
