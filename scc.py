@@ -44,14 +44,11 @@ if "splash_shown" not in st.session_state:
 
     splash = st.empty()
 
-<<<<<<< HEAD
     # Load and Display Responsive Image
     image_path = "splash.png"  # Replace with your actual image file
     splash.image(image_path)
-=======
     # Display the splash screen image using st.image and set it to the center
     splash.image("splash.png", width=800)
->>>>>>> 30e9740f8952811078b549f0a9f47ec23fcc44c8
 
     # Use a progress bar instead of freezing
     progress_bar = st.progress(0)
@@ -333,7 +330,6 @@ filtered_df = df[
 # -------------------------------
 # Dashboard Page
 # -------------------------------
-
 if selected_page == "🏠 Dashboard":
     st.title("💰 AI Finance Assistant Dashboard")
 
@@ -362,20 +358,25 @@ if selected_page == "🏠 Dashboard":
     st.write(f"Total Spent This Month: ₹{total_spent_monthly:,.2f}")
     st.write(f"Number of Transactions This Month: {num_transactions_monthly}")
 
-    # Spending by Category (visible by default)
+    # Spending by Category (This Month)
     st.subheader("📂 Spending by Category (This Month)")
-    category_expenses = df.groupby('category')['amount'].sum().sort_values(ascending=False)
+
+    # Filter the data to include only the current month's transactions
+    category_expenses = current_month_transactions.groupby('category')['amount'].sum().sort_values(ascending=False)
     st.bar_chart(category_expenses)
 
     # Button to reveal Yearly Data
     show_yearly_button = st.button("Show Yearly Data")
     if show_yearly_button:
         st.subheader("📊 Yearly Summary")
-        yearly_expenses = df.groupby(df['datetime'].dt.to_period('Y'))['amount'].sum().reset_index()
-        yearly_expenses['datetime'] = yearly_expenses['datetime'].dt.to_timestamp()  # Convert to datetime format
-        st.bar_chart(yearly_expenses.set_index('datetime')['amount'])
 
+        # Group by year correctly and sum the amounts
+        df['year'] = df['datetime'].dt.year  # Extract year directly
+        yearly_expenses = df.groupby('year')['amount'].sum().reset_index()
 
+        # Now plot the yearly data
+        st.bar_chart(yearly_expenses.set_index('year')['amount'])
+    
 elif selected_page == "📊 Expense Forecasting":
     st.subheader("📉 Expense Forecasting")
 
