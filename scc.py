@@ -8,11 +8,12 @@ from datetime import datetime
 import razorpay
 import time
 import threading
-<<<<<<< HEAD
+import openai
+from gamification import BadgeSystem
+from popup import show_completion_popup
+from datetime import timedelta
 
 # ✅ Move this to the top, before any other `st.` functions
-=======
->>>>>>> 85f65c9319c3d9d8a829a61933050cd673042aad
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
 # --- SPLASH SCREEN --- #
 if "splash_shown" not in st.session_state:
@@ -125,8 +126,8 @@ if not st.session_state["authenticated"]:
 st.sidebar.title(f"👋 Welcome, {st.session_state['username']}")
 st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"authenticated": False}))
 
-st.title("💰 AI Finance Assistant Dashboard")
-st.write("This is the main app content. You must be logged in to access this page.")
+#st.title("💰 AI Finance Assistant Dashboard")
+#st.write("This is the main app content. You must be logged in to access this page.")
 
 
 # -------------------------------
@@ -134,15 +135,41 @@ st.write("This is the main app content. You must be logged in to access this pag
 # -------------------------------
 
 def get_gamified_nudges(df, budget):
-    nudges = []
-    total_spent = df["amount"].sum()
-    if total_spent < budget:
-        nudges.append("🎯 You're under budget! Great job!")
-    if len(df) < 10:
-        nudges.append("📉 Fewer than 10 transactions this month. Keep tracking!")
-    if df["amount"].max() > 5000:
-        nudges.append("🚨 Big spender alert! You had a transaction over ₹5000.")
-    return nudges
+    badges_earned = []  # Collect badges here
+    today = datetime.today()
+    tomorrow = today + timedelta(days=1)
+
+    if tomorrow.month != today.month:
+        expenditure = df["amount"].sum()
+        total_saved = budget - expenditure
+
+        if "popup_shown_for" not in st.session_state:
+            st.session_state["popup_shown_for"] = ""
+
+        if st.session_state["popup_shown_for"] != today.strftime("%Y-%m"):
+            badge_system = BadgeSystem()
+            earned_badges = badge_system.calculate_badges(total_saved)
+
+            show_completion_popup(f"🎉 Month End Summary: You saved ₹{total_saved:.0f}!", duration=4)
+
+            for badge in earned_badges:
+                show_completion_popup(f"🏅 {badge['name']}", image_path=badge['image'], duration=3)
+                badges_earned.append(f"🏅 {badge['name']}")
+
+            progress, next_badge = badge_system.get_progress(total_saved)
+            if next_badge:
+                show_completion_popup(
+                    f"Next badge: {next_badge['name']} ({progress*100:.1f}% complete)",
+                    image_path=next_badge['image'],
+                    duration=3
+                )
+
+            st.session_state["popup_shown_for"] = today.strftime("%Y-%m")
+
+    return badges_earned  # ✅ Ensure you return something
+
+    #total_spent = df["amount"].sum()
+    
 
 def get_category_warnings(df, category_budgets):
     warnings = []
@@ -153,7 +180,37 @@ def get_category_warnings(df, category_budgets):
     return warnings
 
 def chat_with_bot(query, df):
-    return "🤖 I'm still learning! Soon I'll provide smart financial advice."
+    if not st.session_state.get("openai_api_key"):
+        return "⚠️ Please enter your OpenAI API Key in the sidebar."
+
+    openai.api_key = st.session_state["openai_api_key"]
+
+    # Prepare some context from your data
+    recent_data = df.tail(10)[["datetime", "amount", "category", "type"]].to_string(index=False)
+
+    prompt = f"""
+You are a smart personal finance assistant. Help me analyze and understand my spending.
+
+Here are my recent transactions:
+{recent_data}
+
+Now answer this question based on the data above:
+
+{query}
+
+Be brief, helpful, and clear.
+"""
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"🚨 Error: {e}"
+
 
 # -------------------------------
 # Load Data
@@ -177,7 +234,10 @@ st.sidebar.title("🔍 Navigation")
 st.sidebar.divider()
 
 # Date Filter
-date_range = st.sidebar.date_input("Select date range", [df["datetime"].min(), df["datetime"].max()])
+#date_range = st.sidebar.date_input("Select date range", [df["datetime"].min(), df["datetime"].max()])
+min_date = df["datetime"].min().date()
+max_date = df["datetime"].max().date()
+date_range = st.sidebar.date_input("Select date range", [min_date, max_date])
 if len(date_range) != 2:
     st.stop()
 
@@ -219,6 +279,17 @@ if st.sidebar.button("🔓 Authenticate Razorpay", type="primary"):
         st.sidebar.success("✅ Authentication Successful!")
     else:
         st.sidebar.error("⚠ Please enter both API Key and Secret.")
+
+# openai:
+st.sidebar.markdown("### 🤖 OpenAI API Key (for Chatbot)")
+if "openai_api_key" not in st.session_state:
+    st.session_state["openai_api_key"] = ""
+
+api_key_input = st.sidebar.text_input("Enter OpenAI API Key", type="password", value=st.session_state["openai_api_key"])
+if api_key_input:
+    st.session_state["openai_api_key"] = api_key_input
+    openai.api_key = api_key_input
+
 
 # Navigation Option
 page_options = [
@@ -489,35 +560,3 @@ elif selected_page == "💬 AI Chatbot":
     if user_input:
         response = chat_with_bot(user_input, filtered_df)
         st.success(response)
-
-# -------------------------------
-# Optional Enhancements
-# -------------------------------
-elif selected_page == "🛠 Optional Enhancements":
-    st.subheader("🛠 Optional Enhancements You Can Add")
-
-    st.markdown("""
-    | Feature | Description |
-    |--------|-------------|
-    | 🔐 Login System | Secure access with username/password using hashed passwords |
-    | 📥 CSV Upload | Upload your own bank statements in .csv format and view custom insights |
-    | 🧠 Smarter Chatbot | Use OpenAI/GPT to answer complex queries like "What were my top 3 unnecessary expenses last month?" |
-    | 🎯 Budget Goals | Set your own monthly budget and track progress visually |
-    | 🏆 Gamified Nudges | Earn fun badges/achievements when you hit savings goals |
-    | 📤 Export Reports | Export your data and insights to PDF or Excel format |
-    """)
-    st.info("💡 Let me know which one you want to build next and I’ll guide you step by step!")
-
-# -------------------------------
-# Footer (Optional)
-# -------------------------------
-st.markdown("""---""")
-st.markdown("© 2025 Finance Assistant • Built with ❤ using Streamlit")
-
-# -------------------------------
-# End of App
-# -------------------------------
-# This is line ~600. The code has been refactored to ensure:
-# - All sections are displayed via sidebar radio navigation
-# - No logic remains directly on the main page outside the conditionals
-# - Structure and original features are preserved
