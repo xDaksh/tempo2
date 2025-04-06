@@ -13,28 +13,63 @@ from gamification import BadgeSystem
 from popup import show_completion_popup
 from datetime import timedelta
 
-# ✅ Move this to the top, before any other st. functions
+# ✅ Move this to the top, before any other `st.` functions
+
+
 st.set_page_config(page_title="AI Finance Assistant", layout="wide")
-# --- SPLASH SCREEN --- #
+import streamlit as st
+import time
+
+# Check if splash screen has been shown
+# Check if splash screen has been shown
+
+
+import streamlit as st
+import time
+
+# Custom CSS to make the splash image full screen
+splash_css = """
+    <style>
+    [data-testid="stImage"] img {
+        width: 100vw !important;  /* Full width */
+        height: 100vh !important; /* Full height */
+        object-fit: cover;  /* Ensures the image fills the screen without distortion */
+    }
+    </style>
+"""
+
+# Show splash screen if not already shown
 if "splash_shown" not in st.session_state:
+    st.markdown(splash_css, unsafe_allow_html=True)  # Apply CSS styles
+
     splash = st.empty()
-    with splash.container():
-        st.image("splash.png", use_container_width=True)
-        time.sleep(3)
+
+    # Load and Display Responsive Image
+    image_path = "splash.png"  # Replace with your actual image file
+    splash.image(image_path)
+
+    # Use a progress bar instead of freezing
+    progress_bar = st.progress(0)
+    for i in range(100):  # Gradual loading effect
+        time.sleep(0.03)  # Smooth transition
+        progress_bar.progress(i + 1)
+
+    # Clear splash screen
     splash.empty()
+    progress_bar.empty()
+
+    # Mark splash screen as shown
     st.session_state["splash_shown"] = True
 
 # Now continue with your login and main app logic...
 
+# Initialize DB and other components (rest of your code continues here)
+
+
+
+# Now continue with your login and main app logic...
+
 # --- SPLASH SCREEN --- #
-if "splash_shown" not in st.session_state:
-    splash = st.empty()
-    with splash.container():
-        st.image("splash.png", use_container_width=True)
-        time.sleep(3)
-    splash.empty()
-    st.session_state["splash_shown"] = True
-    
     
 import streamlit as st
 import sqlite3
@@ -180,37 +215,7 @@ def get_category_warnings(df, category_budgets):
     return warnings
 
 def chat_with_bot(query, df):
-    if not st.session_state.get("openai_api_key"):
-        return "⚠ Please enter your OpenAI API Key in the sidebar."
-
-    openai.api_key = st.session_state["openai_api_key"]
-
-    # Prepare some context from your data
-    recent_data = df.tail(10)[["datetime", "amount", "category", "type"]].to_string(index=False)
-
-    prompt = f"""
-You are a smart personal finance assistant. Help me analyze and understand my spending.
-
-Here are my recent transactions:
-{recent_data}
-
-Now answer this question based on the data above:
-
-{query}
-
-Be brief, helpful, and clear.
-"""
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"🚨 Error: {e}"
-
+    return "🤖 I'm still learning! Soon I'll provide smart financial advice."
 
 # -------------------------------
 # Load Data
@@ -256,12 +261,14 @@ if "budget" not in st.session_state:
 budget = st.sidebar.number_input("Set Monthly Budget", value=st.session_state.budget, step=1000)
 st.session_state.budget = budget
 
-# Category Budgets
-category_budgets = {}
+# Category Budgets (Dropdown Form)
 st.sidebar.markdown("### 📂 Category Budgets")
-for cat in categories:
-    cat_budget = st.sidebar.number_input(f"{cat} Budget", min_value=0, value=5000, key=f"{cat}_budget")
-    category_budgets[cat] = cat_budget
+with st.sidebar.expander("🔽 Set Category Budgets", expanded=False):
+    category_budgets = {}
+    for cat in categories:
+        cat_budget = st.number_input(f"{cat} Budget", min_value=0, value=5000, key=f"{cat}_budget")
+        category_budgets[cat] = cat_budget
+
 
 # Razorpay Authentication
 st.sidebar.markdown("### 💳 Razorpay Login")
@@ -325,29 +332,44 @@ filtered_df = df[
 if selected_page == "🏠 Dashboard":
     st.title("💰 AI Finance Assistant Dashboard")
 
-    st.subheader("📈 Quick Summary")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Spent", f"₹{filtered_df['amount'].sum():,.2f}")
-    col2.metric("Transactions", f"{len(filtered_df)}")
-    col3.metric("Avg. per Transaction", f"₹{filtered_df['amount'].mean():,.2f}")
+    # Monthly Quick Summary (visible by default)
+    st.subheader("📈 Quick Summary (This Month)")
 
-    current_month = pd.Timestamp.now().strftime('%Y-%m')
-    df_this_month = filtered_df[filtered_df["datetime"].dt.to_period('M').astype(str) == current_month]
-    spent_this_month = df_this_month["amount"].sum()
-    progress = min(spent_this_month / budget, 1.0) if budget > 0 else 0
+    # Calculate monthly expenses (Group by Month)
+    df['month'] = df['datetime'].dt.to_period('M')  # Create a month column
+    monthly_expenses = df.groupby('month')['amount'].sum().reset_index()
 
-    st.subheader("📊 Monthly Budget Progress")
-    st.progress(progress)
-    col1, col2 = st.columns(2)
-    col1.metric("Spent This Month", f"₹{spent_this_month:,.0f}")
-    col2.metric("Remaining Budget", f"₹{budget - spent_this_month:,.0f}")
+    # Filter current month from monthly_expenses
+    current_month_expenses = monthly_expenses[monthly_expenses['month'] == pd.to_datetime(pd.Timestamp.today().replace(day=1)).to_period('M')]
 
-    st.subheader("🧾 Category-wise Budget Tracking")
-    for cat in df['category'].unique():
-        cat_spent = df_this_month[df_this_month['category'] == cat]['amount'].sum()
-        cat_budget = category_budgets.get(cat, 0)
-        cat_remaining = cat_budget - cat_spent
-        st.write(f"{cat}: Spent ₹{cat_spent:.0f} / ₹{cat_budget} | Remaining: ₹{cat_remaining:.0f}")
+    # Check if current_month_expenses is not empty
+    if not current_month_expenses.empty:
+        total_spent_monthly = current_month_expenses['amount'].sum()
+    else:
+        total_spent_monthly = 0
+
+    # Filter the transactions for the current month
+    current_month_transactions = df[df['datetime'].dt.to_period('M') == pd.to_datetime(pd.Timestamp.today().replace(day=1)).to_period('M')]
+
+    # Calculate the number of transactions for the current month
+    num_transactions_monthly = len(current_month_transactions)
+
+    st.write(f"Total Spent This Month: ₹{total_spent_monthly:,.2f}")
+    st.write(f"Number of Transactions This Month: {num_transactions_monthly}")
+
+    # Spending by Category (visible by default)
+    st.subheader("📂 Spending by Category (This Month)")
+    category_expenses = df.groupby('category')['amount'].sum().sort_values(ascending=False)
+    st.bar_chart(category_expenses)
+
+    # Button to reveal Yearly Data
+    show_yearly_button = st.button("Show Yearly Data")
+    if show_yearly_button:
+        st.subheader("📊 Yearly Summary")
+        yearly_expenses = df.groupby(df['datetime'].dt.to_period('Y'))['amount'].sum().reset_index()
+        yearly_expenses['datetime'] = yearly_expenses['datetime'].dt.to_timestamp()  # Convert to datetime format
+        st.bar_chart(yearly_expenses.set_index('datetime')['amount'])
+
 
 elif selected_page == "📊 Expense Forecasting":
     st.subheader("📉 Expense Forecasting")
