@@ -274,9 +274,9 @@ def chat_with_bot(query, df):
             model="gpt-3.5-turbo",  # or "gpt-4" if you have access
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5)
-            return response.choices[0].message.content.strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
-                return f"🚨 Error: {e}"
+        return f"🚨 Error: {e}"
 
 
 
